@@ -11,6 +11,8 @@ function App() {
     const [code, setCode] = useState('');
     const [instruction, setInstruction] = useState('');
     const [response, setResponse] = useState('');
+    const [agentInstruction, setAgentInstruction] = useState('');
+    const [agentTasks, setAgentTasks] = useState([]);
 
     useEffect(() => {
         fetchFiles();
@@ -68,6 +70,15 @@ function App() {
         }
     };
 
+    const handleAgentExecute = async () => {
+        try {
+            const res = await axios.post(`${API_URL}/agent/execute`, { instruction: agentInstruction });
+            setAgentTasks(res.data.tasks);
+        } catch (error) {
+            console.error('Error executing agent instruction:', error);
+        }
+    };
+
     return (
         <div className="App">
             <div className="sidebar">
@@ -96,13 +107,34 @@ function App() {
                     <textarea
                         value={instruction}
                         onChange={(e) => setInstruction(e.target.value)}
-                        placeholder="Enter instruction..."
+                        placeholder="Enter instruction for selected file..."
                     />
                     <button onClick={handleEdit}>Apply Instruction</button>
                     {response && (
                         <div className="response">
                             <h3>LLM Response:</h3>
                             <pre>{response}</pre>
+                        </div>
+                    )}
+                </div>
+                <div className="agent-panel">
+                    <h2>Agent Mode</h2>
+                    <textarea
+                        value={agentInstruction}
+                        onChange={(e) => setAgentInstruction(e.target.value)}
+                        placeholder="Enter high-level instruction for the agent..."
+                    />
+                    <button onClick={handleAgentExecute}>Execute</button>
+                    {agentTasks.length > 0 && (
+                        <div className="tasks">
+                            <h3>Agent Tasks:</h3>
+                            <ul>
+                                {agentTasks.map((task, index) => (
+                                    <li key={index}>
+                                        <strong>{task.action}:</strong> {JSON.stringify(task.args)}
+                                    </li>
+                                ))}
+                            </ul>
                         </div>
                     )}
                 </div>

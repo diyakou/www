@@ -4,6 +4,7 @@ import os
 import g4f
 import asyncio
 from pydantic import BaseModel
+from thinker import analyze_and_plan
 
 app = FastAPI()
 
@@ -25,6 +26,9 @@ class FileContent(BaseModel):
 
 class EditRequest(BaseModel):
     content: str
+    instruction: str
+
+class AgentRequest(BaseModel):
     instruction: str
 
 # Directory to manage files
@@ -72,6 +76,12 @@ async def edit_code(request: EditRequest):
         return {"response": response}
     except Exception as e:
         return {"error": str(e)}
+
+@app.post("/agent/execute")
+async def agent_execute(request: AgentRequest):
+    """Receives a high-level instruction and uses the Thinker agent to break it down into tasks."""
+    tasks = await analyze_and_plan(request.instruction)
+    return {"tasks": tasks}
 
 @app.get("/")
 def read_root():

@@ -1,17 +1,24 @@
 import requests
+import json
 
 API_URL = "http://localhost:8000"
-NEW_FILE_NAME = "test_from_script.py"
-FILE_CONTENT = "print('This file was created from a test script.')"
+INSTRUCTION = "Create a flask app with a single endpoint that returns hello world"
 
-def test_create_file():
-    """Tests creating a new file via the API."""
+def test_agent_planning():
+    """Tests the agent's ability to plan a series of tasks."""
     response = requests.post(
-        f"{API_URL}/files/{NEW_FILE_NAME}",
-        json={"content": FILE_CONTENT}
+        f"{API_URL}/agent/execute",
+        json={"instruction": INSTRUCTION}
     )
     print(f"Status Code: {response.status_code}")
-    print(f"Response: {response.json()}")
+    try:
+        response_json = response.json()
+        print("Response JSON:")
+        print(json.dumps(response_json, indent=2))
+    except json.JSONDecodeError:
+        print("Response is not valid JSON:")
+        print(response.text)
+
 
 if __name__ == "__main__":
-    test_create_file()
+    test_agent_planning()
