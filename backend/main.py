@@ -5,6 +5,7 @@ import g4f
 import asyncio
 from pydantic import BaseModel
 from thinker import analyze_and_plan
+from executor import execute_task
 
 app = FastAPI()
 
@@ -79,9 +80,20 @@ async def edit_code(request: EditRequest):
 
 @app.post("/agent/execute")
 async def agent_execute(request: AgentRequest):
-    """Receives a high-level instruction and uses the Thinker agent to break it down into tasks."""
+    """
+    Receives a high-level instruction, breaks it down into tasks, and executes them.
+    """
     tasks = await analyze_and_plan(request.instruction)
-    return {"tasks": tasks}
+
+    results = []
+    for task in tasks:
+        result = await execute_task(task)
+        results.append({"task": task, "result": result})
+        if result.get("status") == "error":
+            # Stop execution if a task fails
+            break
+
+    return {"results": results}
 
 @app.get("/")
 def read_root():

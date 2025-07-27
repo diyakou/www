@@ -52,6 +52,20 @@
   margin-bottom: 10px;
 }
 
+.results li {
+  border-left: 3px solid #ccc;
+  padding-left: 10px;
+  margin-bottom: 10px;
+}
+
+.results li.success {
+  border-left-color: green;
+}
+
+.results li.error {
+  border-left-color: red;
+}
+
 button {
   margin-right: 10px;
 }

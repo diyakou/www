@@ -2,10 +2,10 @@ import requests
 import json
 
 API_URL = "http://localhost:8000"
-INSTRUCTION = "Create a flask app with a single endpoint that returns hello world"
+INSTRUCTION = "Create a file named README.md and write 'This is a test project.' into it."
 
-def test_agent_planning():
-    """Tests the agent's ability to plan a series of tasks."""
+def test_agent_execution():
+    """Tests the agent's ability to plan and execute a series of tasks."""
     response = requests.post(
         f"{API_URL}/agent/execute",
         json={"instruction": INSTRUCTION}
@@ -19,6 +19,5 @@ def test_agent_planning():
         print("Response is not valid JSON:")
         print(response.text)
 
-
 if __name__ == "__main__":
-    test_agent_planning()
+    test_agent_execution()

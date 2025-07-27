@@ -12,7 +12,7 @@ function App() {
     const [instruction, setInstruction] = useState('');
     const [response, setResponse] = useState('');
     const [agentInstruction, setAgentInstruction] = useState('');
-    const [agentTasks, setAgentTasks] = useState([]);
+    const [agentResults, setAgentResults] = useState([]);
 
     useEffect(() => {
         fetchFiles();
@@ -71,9 +71,11 @@ function App() {
     };
 
     const handleAgentExecute = async () => {
+        setAgentResults([]); // Clear previous results
         try {
             const res = await axios.post(`${API_URL}/agent/execute`, { instruction: agentInstruction });
-            setAgentTasks(res.data.tasks);
+            setAgentResults(res.data.results);
+            fetchFiles(); // Refresh file list after execution
         } catch (error) {
             console.error('Error executing agent instruction:', error);
         }
@@ -125,13 +127,15 @@ function App() {
                         placeholder="Enter high-level instruction for the agent..."
                     />
                     <button onClick={handleAgentExecute}>Execute</button>
-                    {agentTasks.length > 0 && (
-                        <div className="tasks">
-                            <h3>Agent Tasks:</h3>
+                    {agentResults.length > 0 && (
+                        <div className="results">
+                            <h3>Agent Execution Results:</h3>
                             <ul>
-                                {agentTasks.map((task, index) => (
-                                    <li key={index}>
-                                        <strong>{task.action}:</strong> {JSON.stringify(task.args)}
+                                {agentResults.map((item, index) => (
+                                    <li key={index} className={item.result.status}>
+                                        <strong>Task: {item.task.action}</strong>
+                                        <p>Args: {JSON.stringify(item.task.args)}</p>
+                                        <p>Result: {item.result.message || JSON.stringify(item.result)}</p>
                                     </li>
                                 ))}
                             </ul>
