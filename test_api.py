@@ -2,10 +2,11 @@ import requests
 import json
 
 API_URL = "http://localhost:8000"
-INSTRUCTION = "Create a file named README.md and write 'This is a test project.' into it."
+INSTRUCTION = "who are you?"
 
-def test_agent_execution():
-    """Tests the agent's ability to plan and execute a series of tasks."""
+def test_agent_resilience():
+    """Tests the agent's resilience against out-of-scope instructions."""
+    print(f"Sending instruction: '{INSTRUCTION}'")
     response = requests.post(
         f"{API_URL}/agent/execute",
         json={"instruction": INSTRUCTION}
@@ -20,4 +21,4 @@ def test_agent_execution():
         print(response.text)
 
 if __name__ == "__main__":
-    test_agent_execution()
+    test_agent_resilience()

@@ -1,14 +1,17 @@
 import g4f
 import json
 import os
+from prompts import SYSTEM_PROMPT
 
 PROJECT_DIRECTORY = "project_files"
 
 def get_project_structure():
     """Returns a string representing the project's file and directory structure."""
     structure = []
+    if not os.path.exists(PROJECT_DIRECTORY):
+        return "(empty)"
+
     for root, dirs, files in os.walk(PROJECT_DIRECTORY):
-        # Prune the root path to be relative to the project directory
         relative_root = os.path.relpath(root, PROJECT_DIRECTORY)
         if relative_root == ".":
             relative_root = ""
@@ -18,31 +21,26 @@ def get_project_structure():
         for name in files:
             structure.append(os.path.join(relative_root, name))
 
-    return "\n".join(structure)
+    return "\n".join(structure) if structure else "(empty)"
 
 async def analyze_and_plan(instruction: str):
     """
     Analyzes a user's instruction, considering the current project structure,
-    and breaks it down into a series of actionable tasks.
+    and breaks it down into a series of actionable tasks using a refined prompt.
     """
     project_structure = get_project_structure()
 
-    system_prompt = (
-        "You are a task planning agent. Your job is to break down a user's request "
-        "into a series of simple, actionable tasks. Each task should be a JSON object "
-        "with an 'action' and 'args'. Supported actions are: 'create_file', 'write_to_file', "
-        "'read_file', and 'execute_command'. Respond with a JSON array of tasks."
-        "\n\n"
-        "Here is the current project structure:\n"
-        f"```\n{project_structure}\n```\n\n"
-        "Analyze the user's request based on this structure and provide a plan."
+    # The user content will be a combination of the instruction and the project structure.
+    user_content = (
+        f"User Request: \"{instruction}\"\n"
+        f"Project Structure:\n{project_structure}"
     )
 
     response = await g4f.ChatCompletion.create_async(
         model=g4f.models.gpt_4o,
         messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": instruction}
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_content}
         ],
     )
 
