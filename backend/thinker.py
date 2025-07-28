@@ -23,46 +23,55 @@ def get_project_structure():
 
     return "\n".join(structure) if structure else "(empty)"
 
+MAX_RETRIES = 2
+
 async def analyze_and_plan(instruction: str, history: list):
     """
     Analyzes the user's instruction and history to determine the single next step.
+    Includes a retry mechanism to ensure valid JSON output.
     """
     project_structure = get_project_structure()
 
-    # Format the history for the prompt
     formatted_history = "\n".join([
-        f"Task: {item['task']['action']}({item['task']['args']}) -> Result: {item['result']['status']} - {item['result'].get('message', '')}"
+        f"Task: {item['task']['action']}({json.dumps(item['task']['args'])}) -> Result: {item['result']['status']} - {item['result'].get('message', '')}"
         for item in history
     ])
     if not formatted_history:
         formatted_history = "(No tasks executed yet)"
 
-    # If instruction is None, it means we are in a subsequent step.
-    # The initial instruction should be in the history.
     if instruction is None and history:
         instruction = history[0]['task'].get('initial_instruction', 'Could not find original instruction.')
-
 
     user_content = (
         f"Initial User Request: \"{instruction}\"\n\n"
         f"Current Project Structure:\n{project_structure}\n\n"
         f"Execution History:\n{formatted_history}\n\n"
-        "Based on the above, what is the single next task to perform?"
+        "Based on the above, what is the single next task to perform? Respond with a single JSON object."
     )
 
-    response = await g4f.ChatCompletion.create_async(
-        model=g4f.models.gpt_4o,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": user_content}
-        ],
-    )
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_content}
+    ]
 
-    try:
-        # The model might return a single task object or a list with one task
-        task = json.loads(response)
-        if isinstance(task, list):
-            return task
-        return [task]
-    except (json.JSONDecodeError, TypeError):
-        return [{"action": "error", "args": {"message": "Failed to parse LLM response.", "raw_response": response}}]
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = await g4f.ChatCompletion.create_async(
+                model=g4f.models.gpt_4o,
+                messages=messages,
+            )
+
+            # The model might return a single task object or a list with one task
+            task = json.loads(response)
+            if isinstance(task, list):
+                return task
+            return [task] # Always return a list
+
+        except (json.JSONDecodeError, TypeError):
+            # If parsing fails, add a message to the history and retry
+            error_message = f"Invalid JSON response on attempt {attempt + 1}. Please provide only a single, valid JSON object."
+            messages.append({"role": "assistant", "content": response}) # Add the invalid response to context
+            messages.append({"role": "user", "content": error_message}) # Add the correction request
+
+    # If all retries fail
+    return [{"action": "error", "args": {"message": f"Failed to get a valid JSON response after {MAX_RETRIES} attempts."}}]
