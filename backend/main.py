@@ -4,6 +4,7 @@ import os
 import g4f
 import asyncio
 from pydantic import BaseModel
+import uuid
 from thinker import analyze_and_plan
 from executor import execute_task
 
@@ -31,6 +32,13 @@ class EditRequest(BaseModel):
 
 class AgentRequest(BaseModel):
     instruction: str
+
+class AgentStepRequest(BaseModel):
+    session_id: str
+    last_task_result: dict
+
+# In-memory storage for agent sessions
+agent_sessions = {}
 
 # Directory to manage files
 PROJECT_DIRECTORY = "project_files"
@@ -78,22 +86,51 @@ async def edit_code(request: EditRequest):
     except Exception as e:
         return {"error": str(e)}
 
-@app.post("/agent/execute")
-async def agent_execute(request: AgentRequest):
-    """
-    Receives a high-level instruction, breaks it down into tasks, and executes them.
-    """
-    tasks = await analyze_and_plan(request.instruction)
+@app.post("/agent/start")
+async def agent_start(request: AgentRequest):
+    """Starts a new agent session and returns the first task."""
+    session_id = str(uuid.uuid4())
+    agent_sessions[session_id] = {"history": []}
 
-    results = []
-    for task in tasks:
-        result = await execute_task(task)
-        results.append({"task": task, "result": result})
-        if result.get("status") == "error":
-            # Stop execution if a task fails
-            break
+    # Get the first task
+    first_task = await analyze_and_plan(request.instruction, [])
 
-    return {"results": results}
+    # We assume the AI returns a list, so we take the first element
+    task_to_execute = first_task[0] if first_task else {"action": "complete", "args": {}}
+
+    # Store the initial instruction in the history
+    if task_to_execute.get("action") != "complete":
+        task_to_execute["initial_instruction"] = request.instruction
+
+    result = await execute_task(task_to_execute)
+
+    agent_sessions[session_id]["history"].append({"task": task_to_execute, "result": result})
+
+    return {"session_id": session_id, "task": task_to_execute, "result": result}
+
+
+@app.post("/agent/step")
+async def agent_step(request: AgentStepRequest):
+    """Executes the next step in an agent session."""
+    session_id = request.session_id
+    if session_id not in agent_sessions:
+        return {"error": "Invalid session ID"}
+
+    history = agent_sessions[session_id]["history"]
+
+    # Get the next task based on history
+    next_task_list = await analyze_and_plan(None, history) # Instruction is now in history
+
+    task_to_execute = next_task_list[0] if next_task_list else {"action": "complete", "args": {}}
+
+    if task_to_execute.get("action") == "complete":
+        return {"task": task_to_execute, "result": {"status": "success", "message": "Plan completed."}}
+
+    result = await execute_task(task_to_execute)
+
+    history.append({"task": task_to_execute, "result": result})
+
+    return {"task": task_to_execute, "result": result}
 
 @app.get("/")
 def read_root():

@@ -23,17 +23,31 @@ def get_project_structure():
 
     return "\n".join(structure) if structure else "(empty)"
 
-async def analyze_and_plan(instruction: str):
+async def analyze_and_plan(instruction: str, history: list):
     """
-    Analyzes a user's instruction, considering the current project structure,
-    and breaks it down into a series of actionable tasks using a refined prompt.
+    Analyzes the user's instruction and history to determine the single next step.
     """
     project_structure = get_project_structure()
 
-    # The user content will be a combination of the instruction and the project structure.
+    # Format the history for the prompt
+    formatted_history = "\n".join([
+        f"Task: {item['task']['action']}({item['task']['args']}) -> Result: {item['result']['status']} - {item['result'].get('message', '')}"
+        for item in history
+    ])
+    if not formatted_history:
+        formatted_history = "(No tasks executed yet)"
+
+    # If instruction is None, it means we are in a subsequent step.
+    # The initial instruction should be in the history.
+    if instruction is None and history:
+        instruction = history[0]['task'].get('initial_instruction', 'Could not find original instruction.')
+
+
     user_content = (
-        f"User Request: \"{instruction}\"\n"
-        f"Project Structure:\n{project_structure}"
+        f"Initial User Request: \"{instruction}\"\n\n"
+        f"Current Project Structure:\n{project_structure}\n\n"
+        f"Execution History:\n{formatted_history}\n\n"
+        "Based on the above, what is the single next task to perform?"
     )
 
     response = await g4f.ChatCompletion.create_async(
@@ -45,7 +59,10 @@ async def analyze_and_plan(instruction: str):
     )
 
     try:
-        tasks = json.loads(response)
-        return tasks
+        # The model might return a single task object or a list with one task
+        task = json.loads(response)
+        if isinstance(task, list):
+            return task
+        return [task]
     except (json.JSONDecodeError, TypeError):
         return [{"action": "error", "args": {"message": "Failed to parse LLM response.", "raw_response": response}}]

@@ -72,10 +72,25 @@ function App() {
 
     const handleAgentExecute = async () => {
         setAgentResults([]); // Clear previous results
+        let currentInstruction = agentInstruction;
+
         try {
-            const res = await axios.post(`${API_URL}/agent/execute`, { instruction: agentInstruction });
-            setAgentResults(res.data.results);
-            fetchFiles(); // Refresh file list after execution
+            // Start the session
+            const startRes = await axios.post(`${API_URL}/agent/start`, { instruction: currentInstruction });
+            let { session_id, task, result } = startRes.data;
+
+            // Update UI with the first result
+            setAgentResults(prev => [...prev, { task, result }]);
+
+            // Loop until the task is complete
+            while (task.action !== 'complete') {
+                const stepRes = await axios.post(`${API_URL}/agent/step`, { session_id, last_task_result: result });
+                task = stepRes.data.task;
+                result = stepRes.data.result;
+                setAgentResults(prev => [...prev, { task, result }]);
+            }
+
+            fetchFiles(); // Refresh file list after execution is complete
         } catch (error) {
             console.error('Error executing agent instruction:', error);
         }

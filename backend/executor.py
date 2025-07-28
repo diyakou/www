@@ -1,5 +1,6 @@
 import os
 import aiofiles
+import asyncio
 
 PROJECT_DIRECTORY = "project_files"
 
@@ -33,11 +34,25 @@ async def read_file(filename: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+import subprocess
+
 async def execute_command(command: str):
-    """Executes a shell command."""
-    # This is a placeholder and should be implemented with caution.
-    # For security reasons, we will not execute arbitrary commands in this example.
-    return {"status": "success", "message": f"Command '{command}' executed (simulation)."}
+    """Executes a shell command in the project directory."""
+    try:
+        process = await asyncio.create_subprocess_shell(
+            command,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=PROJECT_DIRECTORY
+        )
+        stdout, stderr = await process.communicate()
+
+        if process.returncode == 0:
+            return {"status": "success", "message": stdout.decode()}
+        else:
+            return {"status": "error", "message": stderr.decode()}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 ACTION_DISPATCHER = {
     "create_file": create_file,
